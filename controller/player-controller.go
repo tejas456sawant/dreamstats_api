@@ -47,7 +47,31 @@ func GetPlayer() gin.HandlerFunc {
 		} else {
 			c.JSON(http.StatusOK, result)
 		}
-		// c.String(http.StatusOK, "Hello %s", c.Query("name"))
+	}
+}
 
+func GetPlayerById() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		id := c.Param("id")
+
+		collection := client.Database("dreamstats").Collection("player")
+		doc := collection.FindOne(context.Background(), bson.M{"cricinfo_id": id})
+
+		var result bson.M
+		doc.Decode(&result)
+
+		if result == nil {
+			c.JSON(http.StatusNotFound, gin.H{"message": "Player not found."})
+		} else {
+			c.JSON(http.StatusOK, result)
+		}
 	}
 }
