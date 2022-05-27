@@ -10,6 +10,8 @@ func main() {
 
 	router.SetTrustedProxies([]string{"localhost"})
 
+	router.Static("/images", "./images")
+
 	router.GET("/", controller.HelloWorld())
 
 	api_v1 := router.Group("/api/v1")
