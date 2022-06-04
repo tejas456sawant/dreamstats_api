@@ -2,115 +2,55 @@ package controller
 
 import (
 	"context"
-	"encoding/json"
-	"log"
+	"math"
 	"net/http"
+	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
+	"github.com/tejas456sawant/dreamstats_api/queries"
 	"github.com/tejas456sawant/dreamstats_api/utils"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func GetHeadToHead() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		batter := c.Query("batter")
 		bowler := c.Query("bowler")
+		match_type := c.Query("match_type")
+		group_by := c.Query("group_by")
 
-		ctx := context.Background()
+		ctx, cancle := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancle()
 
-		rdb := redis.NewClient(&redis.Options{
-			Addr:     "localhost:6379",
-			Password: "",
-			DB:       0,
-		})
+		query := queries.GetHeadQuery(batter, bowler, match_type, group_by)
+		output, _ := AllMatchesCollection.Aggregate(ctx, query)
 
-		cache := rdb.Get(ctx, batter+bowler)
+		var results []bson.M
+		if err := output.All(ctx, &results); err != nil {
+			panic(err)
+		}
 
-		if cache.Err() == redis.Nil {
-			clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
+		var response []bson.M
 
-			client, err := mongo.Connect(context.Background(), clientOptions)
-			if err != nil {
-				log.Fatal(err)
-			}
-			defer func() {
-				if err := client.Disconnect(ctx); err != nil {
-					log.Fatal(err)
-				}
-			}()
-
-			coll := client.Database("dreamstats").Collection("ipl")
-
-			output, _ := coll.Aggregate(ctx, bson.A{
-				bson.D{{Key: "$match", Value: bson.D{
-					{Key: "innings", Value: bson.D{
-						{Key: "$elemMatch", Value: bson.D{
-							{Key: "overs", Value: bson.D{
-								{Key: "$elemMatch", Value: bson.D{
-									{Key: "deliveries", Value: bson.D{
-										{Key: "$elemMatch", Value: bson.D{
-											{Key: "batter", Value: batter},
-											{Key: "bowler", Value: bowler},
-										}},
-									}},
-								}},
-							}},
-						}},
-					}},
-				}},
-				},
-				bson.D{
-					{Key: "$addFields", Value: bson.D{
-						{Key: "innings", Value: bson.D{{Key: "$map", Value: bson.D{
-							{Key: "input", Value: "$innings"},
-							{Key: "as", Value: "i"},
-							{Key: "in", Value: bson.D{{Key: "overs", Value: bson.D{
-								{Key: "$map", Value: bson.D{
-									{Key: "input", Value: "$$i.overs"},
-									{Key: "as", Value: "o"},
-									{Key: "in", Value: bson.D{{Key: "deliveries", Value: bson.D{
-										{Key: "$filter", Value: bson.D{
-											{Key: "input", Value: "$$o.deliveries"},
-											{Key: "as", Value: "b"},
-											{Key: "cond", Value: bson.D{
-												{Key: "$and", Value: bson.A{
-													bson.D{{Key: "$eq", Value: bson.A{"$$b.batter", batter}}},
-													bson.D{{Key: "$eq", Value: bson.A{"$$b.bowler", bowler}}},
-													bson.D{{Key: "$lte", Value: bson.A{"$$b.extras.wides", false}}},
-												}},
-											}},
-										}},
-									}}}},
-								}},
-							}}}},
-						}}}}}},
-				},
-				bson.D{{Key: "$sort", Value: bson.D{{Key: "info.dates", Value: 1}}}},
-			})
-
-			var results []bson.M
-			if err = output.All(context.TODO(), &results); err != nil {
-				panic(err)
-			}
-
+		for _, result := range results {
 			var runs []int
 			var balls []int
 			var wickets []int
 			var dots []int
 			var sr []float64
+			var ids []string
 
-			for _, result := range results {
+			for _, matches := range result["matches"].(bson.A) {
 				runs_local := 0
 				wides_local := 0
 				balls_local := 0
 				wickets_local := 0
 				dots_local := 0
 
-				for _, over := range result["innings"].(bson.A) {
+				for _, over := range matches.(bson.M)["innings"].(bson.A) {
 					for _, delivery := range over.(bson.M) {
 						for _, ball := range delivery.(bson.A) {
 							for _, over := range ball.(bson.M) {
@@ -153,48 +93,54 @@ func GetHeadToHead() gin.HandlerFunc {
 				balls = append(balls, balls_local)
 				wickets = append(wickets, wickets_local)
 				dots = append(dots, dots_local)
-				sr = append(sr, (float64(runs_local)/float64(balls_local))*100)
+				if math.IsNaN((float64(runs_local) / float64(balls_local)) * 100) {
+					sr = append(sr, 0)
+				} else {
+					sr = append(sr, (float64(runs_local)/float64(balls_local))*100)
+				}
+				ids = append(ids, matches.(bson.M)["_id"].(primitive.ObjectID).Hex())
 			}
 
-			if err != nil {
-				log.Fatal(err)
+			var group_by_local string = ""
+			var match_type_local string = ""
+			if result["_id"] != nil {
+				id := result["_id"].(bson.M)
+
+				if id["match_type"] != nil {
+					match_type_local = id["match_type"].(string)
+				}
+
+				if id["group_by"] != nil {
+					if reflect.ValueOf(id["group_by"]).Kind() == reflect.Float64 {
+						group_by_local = strconv.FormatFloat(id["group_by"].(float64), 'f', -1, 64)
+					}
+					if reflect.ValueOf(id["group_by"]).Kind() == reflect.String {
+						group_by_local = id["group_by"].(string)
+					}
+				}
+
 			}
 
-			op := gin.H{
-				"results": results,
-				"runs":    runs,
-				"balls":   balls,
-				"wickets": wickets,
-				"dots":    dots,
-				"sr":      sr,
-				"total": gin.H{
+			response = append(response, bson.M{
+				"group_by":   group_by_local,
+				"match_type": match_type_local,
+				"ids":        ids,
+				"runs":       runs,
+				"balls":      balls,
+				"wickets":    wickets,
+				"dots":       dots,
+				"sr":         sr,
+				"total": bson.M{
 					"runs":    utils.ArraySum(runs),
 					"balls":   utils.ArraySum(balls),
 					"wickets": utils.ArraySum(wickets),
 					"dots":    utils.ArraySum(dots),
 					"sr":      float64(utils.ArraySum(runs)) / float64(utils.ArraySum(balls)) * 100,
 				},
-			}
+			})
 
-			var jsonData []byte
-			jsonData, err = json.Marshal(op)
-			if err != nil {
-				log.Fatal(err)
-			}
-			err = rdb.Set(ctx, batter+bowler, jsonData, 24*time.Hour).Err()
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			c.JSON(http.StatusOK, op)
-		} else {
-			result, err := rdb.Get(ctx, batter+bowler).Result()
-			if err != nil {
-				panic(err)
-			}
-			var jsonMap map[string]interface{}
-			json.Unmarshal([]byte(result), &jsonMap)
-			c.JSON(http.StatusOK, jsonMap)
 		}
+
+		c.JSON(http.StatusOK, response)
 	}
 }

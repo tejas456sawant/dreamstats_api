@@ -2,28 +2,17 @@ package controller
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func GetPlayer() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
-
-		if err != nil {
-			log.Fatal(err)
-		}
+		ctx, cancle := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancle()
 
 		query := bson.M{}
 		gender := c.Query("gender")
@@ -39,11 +28,10 @@ func GetPlayer() gin.HandlerFunc {
 			query = bson.M{"$text": bson.M{"$search": name}, "player.gender": gender}
 		}
 
-		collection := client.Database("dreamstats").Collection("player")
-		docs, _ := collection.Find(context.Background(), query)
+		docs, _ := PlayerCollection.Find(ctx, query)
 
 		var result []bson.M
-		docs.All(context.Background(), &result)
+		docs.All(ctx, &result)
 
 		if len(result) == 0 {
 			c.JSON(http.StatusNotFound, gin.H{"message": "Player not found."})
@@ -55,55 +43,19 @@ func GetPlayer() gin.HandlerFunc {
 
 func GetPlayerById() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
+		ctx, cancle := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancle()
 
 		id := c.Param("id")
 
-		rdb := redis.NewClient(&redis.Options{
-			Addr:     "localhost:6379",
-			Password: "",
-			DB:       0,
-		})
+		doc := PlayerCollection.FindOne(ctx, bson.M{"cricinfo_id": id})
 
-		cache := rdb.Get(ctx, "player_"+id)
+		var result bson.M
+		doc.Decode(&result)
 
-		if cache.Err() == redis.Nil {
-			fmt.Println("cache miss")
-
-			client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
-
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			collection := client.Database("dreamstats").Collection("player")
-			doc := collection.FindOne(context.Background(), bson.M{"cricinfo_id": id})
-
-			var result bson.M
-			doc.Decode(&result)
-
-			var json_result []byte
-			json_result, _ = json.Marshal(result)
-
-			err = rdb.Set(ctx, "player_"+id, json_result, 24*time.Hour).Err()
-
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			if result == nil {
-				c.JSON(http.StatusNotFound, gin.H{"message": "Player not found."})
-			} else {
-				c.JSON(http.StatusOK, result)
-			}
+		if result == nil {
+			c.JSON(http.StatusNotFound, gin.H{"message": "Player not found."})
 		} else {
-			fmt.Println("cache hit")
-			var result bson.M
-			err := json.Unmarshal([]byte(cache.Val()), &result)
-			if err != nil {
-				log.Fatal(err)
-			}
 			c.JSON(http.StatusOK, result)
 		}
 	}
