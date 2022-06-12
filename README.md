@@ -21,12 +21,14 @@ format
 limit 
 all
 
+```bash
+sudo service dreamstats status
+sudo service dreamstats start
+sudo service dreamstats stop
+sudo service dreamstats restart
+```
 
 
 https://dev.to/hackmamba/build-a-rest-api-with-golang-and-mongodb-gin-gonic-version-269m
 
-
-val=ball / 6 
-eco = run / val
-
-avg = runs / wicket 
+https://www.digitalocean.com/community/tutorials/how-to-secure-mongodb-on-ubuntu-20-04

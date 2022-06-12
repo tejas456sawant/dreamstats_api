@@ -28,10 +28,16 @@ func GetPlayer() gin.HandlerFunc {
 			query = bson.M{"$text": bson.M{"$search": name}, "player.gender": gender}
 		}
 
+		// opts := options.Find().SetProjection(bson.D{{Key: "identifier_name", Value: 1}, {Key: "cricinfo_id", Value: 1}, {Key: "player.longName", Value: 1}, {Key: "_id", Value: 0}})
 		docs, _ := PlayerCollection.Find(ctx, query)
 
 		var result []bson.M
 		docs.All(ctx, &result)
+
+		// for i := range result {
+		// 	result[i]["longName"] = result[i]["player"].(bson.M)["longName"]
+		// 	delete(result[i], "player")
+		// }
 
 		if len(result) == 0 {
 			c.JSON(http.StatusNotFound, gin.H{"message": "Player not found."})

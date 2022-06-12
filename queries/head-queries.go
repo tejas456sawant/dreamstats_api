@@ -7,11 +7,6 @@ import (
 func GetHeadQuery(batter string, bowler string, match_type string, group_by string) bson.A {
 	query := bson.A{
 		bson.D{
-			{Key: "$sort", Value: bson.D{
-				{Key: "info.dates", Value: -1},
-			}},
-		},
-		bson.D{
 			{Key: "$match", Value: bson.D{
 				{Key: "innings", Value: bson.D{
 					{Key: "$elemMatch", Value: bson.D{
@@ -68,6 +63,58 @@ func GetHeadQuery(batter string, bowler string, match_type string, group_by stri
 										}},
 									}},
 								}},
+							}},
+						}},
+					}},
+				}},
+			}},
+		},
+		bson.D{
+			{Key: "$addFields", Value: bson.D{
+				{Key: "innings", Value: bson.D{
+					{Key: "$map", Value: bson.D{
+						{Key: "input", Value: "$innings"},
+						{Key: "as", Value: "i"},
+						{Key: "in", Value: bson.D{
+							{Key: "overs", Value: bson.D{
+								{Key: "$filter", Value: bson.D{
+									{Key: "input", Value: "$$i.overs"},
+									{Key: "as", Value: "o"},
+									{Key: "cond", Value: bson.D{
+										{Key: "$and", Value: bson.A{
+											bson.D{
+												{Key: "$gt", Value: bson.A{
+													bson.D{
+														{Key: "$size", Value: "$$o.deliveries"},
+													},
+													0,
+												}},
+											},
+										}},
+									}},
+								}},
+							}},
+						}},
+					}},
+				}},
+			}},
+		},
+		bson.D{
+			{Key: "$addFields", Value: bson.D{
+				{Key: "innings", Value: bson.D{
+					{Key: "$filter", Value: bson.D{
+						{Key: "input", Value: "$innings"},
+						{Key: "as", Value: "i"},
+						{Key: "cond", Value: bson.D{
+							{Key: "$and", Value: bson.A{
+								bson.D{
+									{Key: "$gt", Value: bson.A{
+										bson.D{
+											{Key: "$size", Value: "$$i.overs"},
+										},
+										0,
+									}},
+								},
 							}},
 						}},
 					}},

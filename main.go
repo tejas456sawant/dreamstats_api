@@ -20,7 +20,7 @@ func main() {
 
 	router.SetTrustedProxies([]string{"localhost"})
 
-	router.Static("/images", "./images")
+	router.Static("/images", "/home/authorof_net/images")
 
 	rdb := persist.NewRedisStore(redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
@@ -29,8 +29,6 @@ func main() {
 		DB:       0,
 	}))
 
-	router.Use(cache.CacheByRequestURI(rdb, 24*time.Hour))
-
 	router.GET("/", controller.HelloWorld())
 
 	api_v1 := router.Group("/api/v1")
@@ -38,16 +36,16 @@ func main() {
 		player := api_v1.Group("/player")
 		{
 			player.GET("/", controller.GetPlayer())
-			player.GET("/:id", controller.GetPlayerById())
+			player.GET("/:id", cache.CacheByRequestURI(rdb, 24*time.Hour), controller.GetPlayerById())
 		}
 		head := api_v1.Group("/head")
 		{
-			head.GET("/", controller.GetHeadToHead())
+			head.GET("/", cache.CacheByRequestURI(rdb, 24*time.Hour), controller.GetHeadToHead())
 		}
 		form := api_v1.Group("/form")
 		{
-			form.GET("/batting", controller.GetBattingForm())
-			form.GET("/bowling", controller.GetBowlingForm())
+			form.GET("/batting", cache.CacheByRequestURI(rdb, 24*time.Hour), controller.GetBattingForm())
+			form.GET("/bowling", cache.CacheByRequestURI(rdb, 24*time.Hour), controller.GetBowlingForm())
 		}
 	}
 

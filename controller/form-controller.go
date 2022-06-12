@@ -116,6 +116,14 @@ func GetBattingForm() gin.HandlerFunc {
 			"sr":        sr,
 			"my_team":   my_team,
 			"opp_teams": opp_teams,
+			"total": gin.H{
+				"runs":    utils.ArraySum(runs),
+				"balls":   utils.ArraySum(balls),
+				"wickets": utils.ArraySum(wickets),
+				"dots":    utils.ArraySum(dots),
+				"sr":      float64(float64(utils.ArraySum(runs))) / (float64(utils.ArraySum(balls) / 6)),
+				"avg":     float64(utils.ArraySum(runs)) / float64(utils.ArraySum(wickets)),
+			},
 		}
 
 		if len(results) == 0 {
@@ -233,6 +241,27 @@ func GetBowlingForm() gin.HandlerFunc {
 			}
 		}
 
+		total_avg := 0.0
+		if float64(utils.ArraySum(wickets)) == 0 {
+			total_avg = -1
+		} else {
+			total_avg = float64(utils.ArraySum(runs)) / float64(utils.ArraySum(wickets))
+		}
+
+		total_sr := 0.0
+		if float64(utils.ArraySum(balls)/6) == 0 {
+			total_sr = -1
+		} else {
+			total_sr = float64(float64(utils.ArraySum(runs))) / (float64(utils.ArraySum(balls) / 6))
+		}
+
+		total_econ := 0.0
+		if float64(utils.ArraySum(balls)) == 0 {
+			total_econ = -1
+		} else {
+			total_econ = float64(utils.ArraySum(runs)) / (float64(utils.ArraySum(balls)) / 6)
+		}
+
 		op := gin.H{
 			"runs":      runs,
 			"balls":     balls,
@@ -247,8 +276,9 @@ func GetBowlingForm() gin.HandlerFunc {
 				"balls":   utils.ArraySum(balls),
 				"wickets": utils.ArraySum(wickets),
 				"dots":    utils.ArraySum(dots),
-				"sr":      float64(float64(utils.ArraySum(runs))) / (float64(utils.ArraySum(balls) / 6)),
-				"avg":     float64(utils.ArraySum(runs)) / float64(utils.ArraySum(wickets)),
+				"sr":      total_sr,
+				"avg":     total_avg,
+				"economy": total_econ,
 			},
 		}
 
