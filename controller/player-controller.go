@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func GetPlayer() gin.HandlerFunc {
@@ -28,16 +29,11 @@ func GetPlayer() gin.HandlerFunc {
 			query = bson.M{"$text": bson.M{"$search": name}, "player.gender": gender}
 		}
 
-		// opts := options.Find().SetProjection(bson.D{{Key: "identifier_name", Value: 1}, {Key: "cricinfo_id", Value: 1}, {Key: "player.longName", Value: 1}, {Key: "_id", Value: 0}})
-		docs, _ := PlayerCollection.Find(ctx, query)
+		opts := options.Find().SetProjection(bson.D{{Key: "content", Value: 0}})
+		docs, _ := PlayerCollection.Find(ctx, query, opts)
 
 		var result []bson.M
 		docs.All(ctx, &result)
-
-		// for i := range result {
-		// 	result[i]["longName"] = result[i]["player"].(bson.M)["longName"]
-		// 	delete(result[i], "player")
-		// }
 
 		if len(result) == 0 {
 			c.JSON(http.StatusNotFound, gin.H{"message": "Player not found."})
