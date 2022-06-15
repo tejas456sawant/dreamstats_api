@@ -41,6 +41,7 @@ func GetHeadToHead() gin.HandlerFunc {
 			var global_runs int
 			var global_balls int
 			var global_wickets int
+			var global_dots int
 
 			for _, result := range results {
 				var runs []int
@@ -106,6 +107,7 @@ func GetHeadToHead() gin.HandlerFunc {
 					global_balls += balls_local
 					global_runs += runs_local
 					global_wickets += wickets_local
+					global_dots += dots_local
 
 					dots = append(dots, dots_local)
 					inns = append(inns, inns_local)
@@ -164,6 +166,7 @@ func GetHeadToHead() gin.HandlerFunc {
 					"runs":    global_runs,
 					"balls":   global_balls,
 					"wickets": global_wickets,
+					"dots":    global_dots,
 				},
 			})
 		}

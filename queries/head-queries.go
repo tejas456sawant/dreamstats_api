@@ -123,7 +123,21 @@ func GetHeadQuery(batter string, bowler string, match_type string, group_by stri
 		},
 	}
 
-	if match_type != "" {
+	if match_type == "IT20" {
+		query = append(query, bson.D{
+			{Key: "$match", Value: bson.D{
+				{Key: "info.match_type", Value: "T20"},
+				{Key: "info.team_type", Value: "international"},
+			}},
+		})
+	} else if match_type == "T20" {
+		query = append(query, bson.D{
+			{Key: "$match", Value: bson.D{
+				{Key: "info.match_type", Value: "T20"},
+				{Key: "info.team_type", Value: "club"},
+			}},
+		})
+	} else if match_type != "" {
 		query = append(query, bson.D{
 			{Key: "$match", Value: bson.D{
 				{Key: "info.match_type", Value: match_type},
@@ -168,6 +182,12 @@ func GetHeadQuery(batter string, bowler string, match_type string, group_by stri
 			}},
 		})
 	}
+
+	query = append(query, bson.D{
+		{Key: "$sort", Value: bson.D{
+			{Key: "_id.group_by", Value: 1},
+		}},
+	})
 
 	return query
 }
