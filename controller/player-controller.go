@@ -62,3 +62,21 @@ func GetPlayerById() gin.HandlerFunc {
 		}
 	}
 }
+
+func GetTopPlayers() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancle := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancle()
+
+		docs, _ := TopPlayersCollection.Find(ctx, bson.M{})
+
+		var result []bson.M
+		docs.All(ctx, &result)
+
+		if len(result) == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"message": "Player not found."})
+		} else {
+			c.JSON(http.StatusOK, result)
+		}
+	}
+}

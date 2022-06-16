@@ -33,6 +33,7 @@ func main() {
 		player := api_v1.Group("/player")
 		{
 			player.GET("/", controller.GetPlayer())
+			player.GET("/top", controller.GetTopPlayers())
 			player.GET("/:id", controller.GetPlayerById())
 		}
 		head := api_v1.Group("/head")
