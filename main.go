@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/tejas456sawant/dreamstats_api/config"
 	"github.com/tejas456sawant/dreamstats_api/controller"
@@ -44,6 +46,22 @@ func main() {
 		{
 			form.GET("/batting", controller.GetBattingForm())
 			form.GET("/bowling", controller.GetBowlingForm())
+		}
+		match := api_v1.Group("/match")
+		{
+			match.GET("/:id", controller.GetMatchById())
+		}
+		score := api_v1.Group("/score")
+		{
+			score.GET("/card/:id", controller.GetScorecardById())
+			score.GET("/live", func(ctx *gin.Context) {
+				ws, err := controller.Upgrade(ctx.Writer, ctx.Request)
+				if err != nil {
+					ctx.AbortWithError(http.StatusInternalServerError, err)
+					return
+				}
+				controller.Writer(ws)
+			})
 		}
 	}
 

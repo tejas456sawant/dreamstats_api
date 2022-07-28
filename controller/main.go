@@ -9,6 +9,7 @@ import (
 var PlayerCollection *mongo.Collection = config.GetCollection(config.DB, "player")
 var AllMatchesCollection *mongo.Collection = config.GetCollection(config.DB, "all")
 var TopPlayersCollection *mongo.Collection = config.GetCollection(config.DB, "topPlayers")
+var ScorecardCollection *mongo.Collection = config.GetCollection(config.DB, "scorecard")
 
 func HelloWorld() gin.HandlerFunc {
 	return func(c *gin.Context) {
