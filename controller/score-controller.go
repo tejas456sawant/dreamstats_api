@@ -3,71 +3,21 @@ package controller
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
-
-func Upgrade(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
-	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
-
-	ws, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(err)
-		return ws, err
-	}
-
-	return ws, nil
-}
-
-func Writer(ws *websocket.Conn) {
-	for {
-		ticker := time.NewTicker(time.Second * 3)
-		defer ticker.Stop()
-		for range ticker.C {
-			res, err := http.Get("https://www.espncricinfo.com/live-cricket-score")
-			if err != nil {
-				log.Print(err)
-				return
-			}
-			if res.StatusCode != 200 {
-				log.Printf("status code error: %d %s", res.StatusCode, res.Status)
-				return
-			}
-
-			doc, err := goquery.NewDocumentFromReader(res.Body)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			var content map[string]map[string]map[string]map[string]map[string][]interface{}
-			data := doc.Find("script#__NEXT_DATA__").Text()
-			json.Unmarshal([]byte(data), &content)
-			fmt.Println(content["props"]["appPageProps"]["data"]["content"]["matches"])
-
-			err = ws.WriteMessage(websocket.TextMessage, []byte(data))
-			if err != nil {
-				log.Println(err)
-				return
-			}
-		}
-	}
-}
-
 func GetScorecardById() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		ctx, cancle := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancle()
 
 		id, err := strconv.ParseFloat(c.Param("id"), 64)
 		if err != nil {
@@ -75,26 +25,55 @@ func GetScorecardById() gin.HandlerFunc {
 			return
 		}
 
-		doc := ScorecardCollection.FindOne(context.Background(), bson.M{"match_id": id})
+		doc := ScorecardCollection.FindOne(ctx, bson.M{"match_id": id})
 		var result bson.M
 		doc.Decode(&result)
 
 		if result == nil {
-			res, err := http.Get("https://dreamstats-live-score.herokuapp.com/scorecard/" + c.Param("id"))
+			var url string
+			url_check, _ := http.Get("https://www.espncricinfo.com/matches/engine/match/" + c.Param("id") + ".html")
+			if strings.Contains(url_check.Request.URL.String(), "live-cricket-score") {
+				url = strings.Replace(url_check.Request.URL.String(), "live-cricket-score", "full-scorecard", -1)
+			} else {
+				url = url_check.Request.URL.String()
+			}
+			defer url_check.Body.Close()
+
+			res, err := http.Get(url)
 			if err != nil {
-				fmt.Print(err)
 				return
 			}
-
 			if res.StatusCode != 200 {
-				fmt.Printf("status code error: %d %s", res.StatusCode, res.Status)
 				return
 			}
+			defer res.Body.Close()
 
-			var content map[string]interface{}
-			json.NewDecoder(res.Body).Decode(&content)
+			doc, err := goquery.NewDocumentFromReader(res.Body)
+			if err != nil {
+				log.Print(err)
+			}
 
-			ScorecardCollection.InsertOne(context.Background(), content)
+			script := doc.Find("script#__NEXT_DATA__").Text()
+
+			var match map[string]map[string]map[string]map[string]interface{}
+			json.Unmarshal([]byte(script), &match)
+
+			var scorecard map[string]map[string]map[string]map[string]map[string]map[string][]interface{}
+			json.Unmarshal([]byte(script), &scorecard)
+
+			var playersOfTheMatch map[string]map[string]map[string]map[string]map[string]map[string]interface{}
+			json.Unmarshal([]byte(script), &playersOfTheMatch)
+
+			content := map[string]interface{}{
+				"match_id":          id,
+				"match":             match["props"]["appPageProps"]["data"]["match"],
+				"scorecard":         scorecard["props"]["appPageProps"]["data"]["content"]["scorecard"],
+				"playersOfTheMatch": playersOfTheMatch["props"]["appPageProps"]["data"]["content"]["supportInfo"]["playersOfTheMatch"],
+			}
+
+			if !strings.Contains(url_check.Request.URL.String(), "live-cricket-score") {
+				ScorecardCollection.InsertOne(ctx, content)
+			}
 
 			c.JSON(http.StatusOK, content)
 		} else {
