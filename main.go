@@ -11,7 +11,7 @@ func main() {
 
 	config.ConnectDB()
 
-	gin.SetMode(gin.DebugMode)
+	gin.SetMode(gin.ReleaseMode)
 
 	router.SetTrustedProxies([]string{"localhost"})
 

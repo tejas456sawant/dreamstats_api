@@ -64,11 +64,39 @@ func GetScorecardById() gin.HandlerFunc {
 			var playersOfTheMatch map[string]map[string]map[string]map[string]map[string]map[string]interface{}
 			json.Unmarshal([]byte(script), &playersOfTheMatch)
 
-			content := map[string]interface{}{
-				"match_id":          id,
-				"match":             match["props"]["appPageProps"]["data"]["match"],
-				"scorecard":         scorecard["props"]["appPageProps"]["data"]["content"]["scorecard"],
-				"playersOfTheMatch": playersOfTheMatch["props"]["appPageProps"]["data"]["content"]["supportInfo"]["playersOfTheMatch"],
+			var content map[string]interface{}
+
+			if strings.Contains(url_check.Request.URL.String(), "live-cricket-score") {
+				live_doc, err := goquery.NewDocumentFromReader(url_check.Body)
+				if err != nil {
+					log.Println(err)
+				}
+
+				live_script := live_doc.Find("script#__NEXT_DATA__").Text()
+
+				var livePerformance map[string]map[string]map[string]map[string]map[string]map[string][]interface{}
+				json.Unmarshal([]byte(live_script), &livePerformance)
+
+				var recentBallCommentary map[string]map[string]map[string]map[string]map[string]map[string][]interface{}
+				json.Unmarshal([]byte(live_script), &recentBallCommentary)
+
+				content = map[string]interface{}{
+					"match_id":             id,
+					"is_live":              true,
+					"match":                match["props"]["appPageProps"]["data"]["match"],
+					"scorecard":            scorecard["props"]["appPageProps"]["data"]["content"]["scorecard"],
+					"playersOfTheMatch":    playersOfTheMatch["props"]["appPageProps"]["data"]["content"]["supportInfo"]["playersOfTheMatch"],
+					"livePerformance":      livePerformance["props"]["appPageProps"]["data"]["content"]["livePerformance"],
+					"recentBallCommentary": recentBallCommentary["props"]["appPageProps"]["data"]["content"]["recentBallCommentary"],
+				}
+			} else {
+				content = map[string]interface{}{
+					"match_id":          id,
+					"is_live":           false,
+					"match":             match["props"]["appPageProps"]["data"]["match"],
+					"scorecard":         scorecard["props"]["appPageProps"]["data"]["content"]["scorecard"],
+					"playersOfTheMatch": playersOfTheMatch["props"]["appPageProps"]["data"]["content"]["supportInfo"]["playersOfTheMatch"],
+				}
 			}
 
 			if !strings.Contains(url_check.Request.URL.String(), "live-cricket-score") {
