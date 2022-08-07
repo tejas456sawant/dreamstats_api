@@ -52,7 +52,7 @@ func GetPlayer() gin.HandlerFunc {
 		docs.All(ctx, &result)
 
 		if len(result) == 0 {
-			c.JSON(http.StatusNotFound, gin.H{"message": "Player not found."})
+			c.JSON(http.StatusOK, []bson.M{})
 		} else {
 			c.JSON(http.StatusOK, result)
 		}
