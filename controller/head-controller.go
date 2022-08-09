@@ -13,19 +13,35 @@ import (
 	"github.com/tejas456sawant/dreamstats_api/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func GetHeadToHead() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		batter := c.Query("batter")
-		bowler := c.Query("bowler")
+		batter_id := c.Query("batter")
+		bowler_id := c.Query("bowler")
 		match_type := c.Query("match_type")
 		group_by := c.Query("group_by")
 
 		ctx, cancle := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancle()
 
-		query := queries.GetHeadQuery(batter, bowler, match_type, group_by)
+		batter := PlayerCollection.FindOne(ctx, bson.M{"cricinfo_id": batter_id}, options.FindOne().SetProjection(bson.M{"identifier_name": 1}))
+		bowler := PlayerCollection.FindOne(ctx, bson.M{"cricinfo_id": bowler_id}, options.FindOne().SetProjection(bson.M{"identifier_name": 1}))
+
+		if batter.Err() != nil || bowler.Err() != nil {
+			c.JSON(http.StatusNotFound, gin.H{"message": "Head to head not found."})
+			return
+		}
+
+		var batter_doc bson.M
+		var bowler_doc bson.M
+		batter.Decode(&batter_doc)
+		bowler.Decode(&bowler_doc)
+		batter_name := batter_doc["identifier_name"].(string)
+		bowler_name := bowler_doc["identifier_name"].(string)
+
+		query := queries.GetHeadQuery(batter_name, bowler_name, match_type, group_by)
 		output, _ := AllMatchesCollection.Aggregate(ctx, query)
 
 		var results []bson.M
