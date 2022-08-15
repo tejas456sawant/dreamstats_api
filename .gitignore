@@ -2,4 +2,5 @@
 *.exe
 /tmp
 dreamstats_api
+dreamstats
 *.log

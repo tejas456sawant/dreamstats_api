@@ -1,6 +1,8 @@
 package main
 
 import (
+	"runtime"
+
 	"github.com/gin-gonic/gin"
 	"github.com/tejas456sawant/dreamstats_api/config"
 	"github.com/tejas456sawant/dreamstats_api/controller"
@@ -15,7 +17,11 @@ func main() {
 
 	router.SetTrustedProxies([]string{"localhost"})
 
-	router.Static("/images", "/home/authorof_net/images")
+	if runtime.GOOS == "windows" {
+		router.Static("/images", "./images")
+	} else {
+		router.Static("/images", "/home/dreamstatsgcp/images")
+	}
 
 	// rdb := persist.NewRedisStore(redis.NewClient(&redis.Options{
 	// 	Addr:     "localhost:6379",

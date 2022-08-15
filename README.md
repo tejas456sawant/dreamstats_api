@@ -5,7 +5,12 @@
 ```bash
 set GOARCH=amd64
 set GOOS=linux
-go build .
+go build -o dreamstats
+```
+```bash
+sudo chmod +x dreamstats
+sudo systemctl restart dreamstats
+sudo systemctl status dreamstats
 ```
 
 
