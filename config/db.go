@@ -14,9 +14,9 @@ var DBURL string
 
 func ConnectDB() *mongo.Client {
 	if runtime.GOOS == "windows" {
-		DBURL = "mongodb://root:dreamstats@dream.magiccup.store:27017"
+		DBURL = "mongodb+srv://doadmin:24E57t3LA19mnq0a@db-mongodb-blr1-93233-03fbf148.mongo.ondigitalocean.com"
 	} else {
-		DBURL = "mongodb://root:dreamstats@localhost:27017"
+		DBURL = "mongodb+srv://doadmin:24E57t3LA19mnq0a@db-mongodb-blr1-93233-03fbf148.mongo.ondigitalocean.com"
 	}
 
 	client, err := mongo.NewClient(options.Client().ApplyURI(DBURL))

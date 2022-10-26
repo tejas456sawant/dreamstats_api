@@ -20,7 +20,7 @@ func main() {
 	if runtime.GOOS == "windows" {
 		router.Static("/images", "./images")
 	} else {
-		router.Static("/images", "/home/dreamstatsgcp/images")
+		router.Static("/images", "/root/images")
 	}
 
 	// rdb := persist.NewRedisStore(redis.NewClient(&redis.Options{
